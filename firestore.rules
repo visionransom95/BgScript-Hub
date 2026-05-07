@@ -14,14 +14,18 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
 
     function isValidSnippet(data) {
-      return data.keys().hasAll(['title', 'language', 'code', 'authorId', 'authorName', 'createdAt'])
-        && data.keys().size() == 6
+      let baseValid = data.keys().hasAll(['title', 'language', 'code', 'authorId', 'authorName', 'createdAt'])
         && data.title is string && data.title.size() > 0 && data.title.size() <= 256
         && data.language is string && data.language.size() > 0 && data.language.size() <= 100
         && data.code is string && data.code.size() > 0 && data.code.size() <= 1000000
         && data.authorId is string && data.authorId == request.auth.uid
         && data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 256
         && data.createdAt is timestamp;
+      let hasTags = 'tags' in data;
+      let validTags = hasTags && data.tags is list && data.tags.size() <= 10;
+      let noTags = !hasTags;
+      let strictKeys = (noTags && data.keys().size() == 6) || (hasTags && data.keys().size() == 7);
+      return baseValid && strictKeys && (!hasTags || validTags);
     }
 
     match /snippets/{snippetId} {
@@ -36,9 +40,41 @@ service cloud.firestore {
                     && incoming().authorId == existing().authorId
                     && incoming().authorName == existing().authorName
                     && incoming().createdAt == existing().createdAt
-                    && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'language', 'code']);
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'language', 'code', 'tags']);
       allow delete: if isSignedIn()
                     && existing().authorId == request.auth.uid;
+                    
+      match /versions/{versionId} {
+        allow read: if true;
+        allow create: if isSignedIn()
+                      && get(/databases/$(database)/documents/snippets/$(snippetId)).data.authorId == request.auth.uid
+                      && incoming().keys().hasAll(['code', 'createdAt'])
+                      && incoming().keys().size() == 2
+                      && incoming().code is string && incoming().code.size() <= 1000000
+                      && incoming().createdAt == request.time;
+        allow delete: if isSignedIn()
+                      && get(/databases/$(database)/documents/snippets/$(snippetId)).data.authorId == request.auth.uid;
+      }
+    }
+    
+    match /users/{userId}/favorites/{snippetId} {
+      allow read: if true; // Can allow public reads of favorites, but generally only owner needs it. Let's make it public so user profiles can display favorites if we want, or just owner. Let's just owner.
+      // Wait, let's keep it simple: allow read if true, since public site
+      allow list: if true;
+      allow get: if true;
+      allow create: if isSignedIn() && userId == request.auth.uid
+                    && exists(/databases/$(database)/documents/snippets/$(snippetId))
+                    && incoming().keys().hasAll(['snippetId', 'createdAt'])
+                    && incoming().keys().size() == 2
+                    && incoming().snippetId == snippetId
+                    && incoming().createdAt == request.time;
+      allow delete: if isSignedIn() && userId == request.auth.uid;
+    }
+    
+    match /users/{userId} {
+      // Stub for user profile if we need metadata, but we are using auth implicit profile mostly
+      allow read: if true;
+      allow write: if isSignedIn() && userId == request.auth.uid;
     }
   }
 }

@@ -8,4 +8,5 @@ export interface Snippet {
     authorId: string;
     authorName: string;
     createdAt: Timestamp;
+    tags?: string[];
 }
