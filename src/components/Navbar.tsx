@@ -17,6 +17,9 @@ export function Navbar({ searchQuery, setSearchQuery }: { searchQuery: string, s
             )}
             <Link to="/about" className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>About</Link>
             <Link to="/contact" className={`text-sm font-medium transition-colors ${location.pathname === '/contact' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>Contact</Link>
+            <a href="https://bg-script-hub-lake.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1">
+                Lake Site <span className="text-[10px]">↗</span>
+            </a>
         </>
     );
 
