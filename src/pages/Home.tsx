@@ -3,10 +3,22 @@ import { SnippetList } from '../components/SnippetList';
 import { UploadModal } from '../components/UploadModal';
 import { useAuth } from '../lib/auth';
 import { Plus } from 'lucide-react';
+import { Snippet } from '../types';
 
 export function Home({ searchQuery }: { searchQuery: string }) {
     const { user } = useAuth();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+
+    const handleEdit = (snippet: Snippet) => {
+        setEditingSnippet(snippet);
+        setIsUploadOpen(true);
+    };
+
+    const handleCloseUpload = () => {
+        setIsUploadOpen(false);
+        setEditingSnippet(null);
+    };
 
     return (
         <main className="max-w-7xl mx-auto px-6 py-8">
@@ -30,8 +42,8 @@ export function Home({ searchQuery }: { searchQuery: string }) {
                 )}
             </div>
 
-            <SnippetList searchQuery={searchQuery} />
-            <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} />
+            <SnippetList searchQuery={searchQuery} onEdit={handleEdit} />
+            <UploadModal isOpen={isUploadOpen} onClose={handleCloseUpload} snippetToEdit={editingSnippet} />
         </main>
     );
 }

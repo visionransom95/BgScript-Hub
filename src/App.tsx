@@ -5,6 +5,8 @@ import { Home } from './pages/Home';
 import { About } from './pages/About';
 import { Contact } from './pages/Contact';
 import { Login } from './pages/Login';
+import { Storage } from './pages/Storage';
+import { SnippetDetail } from './pages/SnippetDetail';
 import { useAuth } from './lib/auth';
 
 export default function App() {
@@ -26,9 +28,11 @@ export default function App() {
                 <div className="flex-1 flex flex-col">
                     <Routes>
                         <Route path="/" element={<Home searchQuery={searchQuery} />} />
+                        <Route path="/storage" element={<Storage searchQuery={searchQuery} />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/login" element={<Login />} />
+                        <Route path="/snippet/:id" element={<SnippetDetail />} />
                     </Routes>
                 </div>
             </div>

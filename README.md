@@ -20,21 +20,6 @@ A modern, community-driven platform for developers to upload, share, and discove
 - **Icons**: Lucide React
 - **Utilities**: `date-fns` for relative time formatting
 
-## Getting Started
-
-In Google AI Studio, this application is automatically configured to run in the provided Cloud Run environment. If developing locally:
-
-1. Clone or download the repository.
-2. Ensure you have the `firebase-applet-config.json` set up pointing to your activated Firebase project.
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
 ## Community
 
-Join our ongoing discussion and suggest features in our discord community channel (linked in the Contact page).
+Join our ongoing discussion and suggest features in our discord community channel: [https://discord.com/invite/z9jZ8P6aum](https://discord.com/invite/z9jZ8P6aum)

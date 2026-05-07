@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, limit, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit, deleteDoc, doc, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Snippet } from '../types';
 import { useAuth } from '../lib/auth';
 import { formatDistanceToNow } from 'date-fns';
-import { FileCode, Trash2, Code2, TerminalSquare, Box, Coffee, Fingerprint, Scissors, Maximize2, Filter } from 'lucide-react';
+import { FileCode, Trash2, Code2, TerminalSquare, Box, Coffee, Fingerprint, Scissors, Maximize2, Filter, Edit2, Share2, Database, Layout } from 'lucide-react';
 import { PreviewModal } from './PreviewModal';
 
 const LanguageIcon = ({ lang }: { lang: string }) => {
@@ -12,26 +12,42 @@ const LanguageIcon = ({ lang }: { lang: string }) => {
         case 'python': return <TerminalSquare size={16} className="text-blue-500" />;
         case 'javascript':
         case 'typescript': return <Code2 size={16} className="text-yellow-500" />;
-        case 'html': return <FileCode size={16} className="text-orange-500" />;
+        case 'html': return <Layout size={16} className="text-orange-500" />;
         case 'css': return <Scissors size={16} className="text-blue-400" />;
         case 'rust': return <Box size={16} className="text-orange-700" />;
-        case 'java': return <Coffee size={16} className="text-red-500" />;
+        case 'java':
+        case 'kotlin': return <Coffee size={16} className="text-red-500" />;
         case 'go': return <Fingerprint size={16} className="text-cyan-500" />;
+        case 'php': return <FileCode size={16} className="text-indigo-400" />;
+        case 'ruby': return <Box size={16} className="text-red-600" />;
+        case 'swift': return <Code2 size={16} className="text-orange-600" />;
+        case 'csharp': return <Box size={16} className="text-purple-600" />;
+        case 'sql': return <Database size={16} className="text-blue-600" />;
+        case 'json':
+        case 'yaml':
+        case 'markdown': return <FileCode size={16} className="text-gray-600" />;
         default: return <FileCode size={16} className="text-gray-500" />;
     }
 };
 
-export function SnippetList({ searchQuery }: { searchQuery: string }) {
+export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQuery: string, onEdit: (snippet: Snippet) => void, filterByAuthor?: string }) {
     const { user } = useAuth();
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedSnippet, setSelectedSnippet] = useState<Snippet | null>(null);
     const [sortBy, setSortBy] = useState<'createdAt' | 'title' | 'language'>('createdAt');
     const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
+    const [languageFilter, setLanguageFilter] = useState<string>('all');
 
     useEffect(() => {
         setLoading(true);
-        const q = query(collection(db, 'snippets'), orderBy(sortBy, sortDirection), limit(50));
+        let q;
+        if (filterByAuthor) {
+            q = query(collection(db, 'snippets'), where('authorId', '==', filterByAuthor));
+        } else {
+            q = query(collection(db, 'snippets'), orderBy(sortBy, sortDirection), limit(100));
+        }
+        
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -45,7 +61,7 @@ export function SnippetList({ searchQuery }: { searchQuery: string }) {
         });
 
         return () => unsubscribe();
-    }, [sortBy, sortDirection]);
+    }, [sortBy, sortDirection, filterByAuthor]);
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -57,12 +73,40 @@ export function SnippetList({ searchQuery }: { searchQuery: string }) {
         }
     }
 
-    const filteredSnippets = snippets.filter(s => {
+    const handleShare = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}/snippet/${id}`;
+        navigator.clipboard.writeText(url);
+        alert('Snippet link copied to clipboard!');
+    };
+
+    let filteredSnippets = snippets.filter(s => {
+        if (languageFilter !== 'all' && s.language !== languageFilter) return false;
         const queryLower = searchQuery.toLowerCase();
         return s.title.toLowerCase().includes(queryLower) || 
                s.language.toLowerCase().includes(queryLower) ||
                s.authorName.toLowerCase().includes(queryLower);
     });
+
+    if (filterByAuthor) {
+        filteredSnippets.sort((a, b) => {
+            if (sortBy === 'createdAt') {
+                const timeA = a.createdAt?.toMillis() || 0;
+                const timeB = b.createdAt?.toMillis() || 0;
+                return sortDirection === 'desc' ? timeB - timeA : timeA - timeB;
+            }
+            if (sortBy === 'title') {
+                return sortDirection === 'desc' ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
+            }
+            if (sortBy === 'language') {
+                return sortDirection === 'desc' ? b.language.localeCompare(a.language) : a.language.localeCompare(b.language);
+            }
+            return 0;
+        });
+    }
+
+    // Derive languages present in the fetched snippets
+    const presentLanguages = Array.from(new Set(snippets.map(s => s.language))).sort();
 
     if (loading) {
         return <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -90,25 +134,41 @@ export function SnippetList({ searchQuery }: { searchQuery: string }) {
     return (
         <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Snippets</h3>
-                <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500 font-medium flex items-center gap-1"><Filter size={14} /> Sort by:</span>
-                    <select 
-                        value={`${sortBy}-${sortDirection}`} 
-                        onChange={(e) => {
-                            const [newSortBy, newSortDir] = e.target.value.split('-');
-                            setSortBy(newSortBy as any);
-                            setSortDirection(newSortDir as any);
-                        }}
-                        className="bg-white border border-gray-200 text-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 outline-none font-medium"
-                    >
-                        <option value="createdAt-desc">Date (Newest first)</option>
-                        <option value="createdAt-asc">Date (Oldest first)</option>
-                        <option value="title-asc">Title (A-Z)</option>
-                        <option value="title-desc">Title (Z-A)</option>
-                        <option value="language-asc">Language (A-Z)</option>
-                        <option value="language-desc">Language (Z-A)</option>
-                    </select>
+                <h3 className="text-lg font-semibold text-gray-900">{filterByAuthor ? 'My Snippets' : 'Community Snippets'}</h3>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-500 font-medium flex items-center gap-1"><Filter size={14} /> Lang:</span>
+                        <select 
+                            value={languageFilter} 
+                            onChange={(e) => setLanguageFilter(e.target.value)}
+                            className="bg-white border border-gray-200 text-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 outline-none font-medium capitalize"
+                        >
+                            <option value="all">All Languages</option>
+                            {presentLanguages.map(l => (
+                                <option key={l} value={l}>{l}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="w-px h-5 bg-gray-200"></div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-500 font-medium">Sort:</span>
+                        <select 
+                            value={`${sortBy}-${sortDirection}`} 
+                            onChange={(e) => {
+                                const [newSortBy, newSortDir] = e.target.value.split('-');
+                                setSortBy(newSortBy as any);
+                                setSortDirection(newSortDir as any);
+                            }}
+                            className="bg-white border border-gray-200 text-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 outline-none font-medium"
+                        >
+                            <option value="createdAt-desc">Date (Newest)</option>
+                            <option value="createdAt-asc">Date (Oldest)</option>
+                            <option value="title-asc">Title (A-Z)</option>
+                            <option value="title-desc">Title (Z-A)</option>
+                            <option value="language-asc">Language (A-Z)</option>
+                            <option value="language-desc">Language (Z-A)</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -126,20 +186,36 @@ export function SnippetList({ searchQuery }: { searchQuery: string }) {
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-semibold text-gray-900 line-clamp-1 pr-2">{snippet.title}</h3>
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-gray-500 capitalize">
                                         {snippet.language} · by {snippet.authorName}
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                    onClick={(e) => handleShare(snippet.id, e)}
+                                    className="text-gray-400 hover:text-blue-500 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                                    title="Share Link"
+                                >
+                                    <Share2 size={16} />
+                                </button>
                                 {user?.uid === snippet.authorId && (
-                                    <button 
-                                        onClick={(e) => handleDelete(snippet.id, e)}
-                                        className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-white transition-colors"
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onEdit(snippet); }}
+                                            className="text-gray-400 hover:text-indigo-500 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                            title="Edit"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => handleDelete(snippet.id, e)}
+                                            className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                            title="Delete"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </>
                                 )}
                                 <div className="text-gray-400 p-2 rounded-lg group-hover:text-indigo-600 transition-colors bg-white border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50">
                                     <Maximize2 size={16} />
@@ -161,7 +237,7 @@ export function SnippetList({ searchQuery }: { searchQuery: string }) {
                 
                 {filteredSnippets.length === 0 && snippets.length > 0 && (
                     <div className="col-span-full text-center p-12 text-gray-500">
-                        No snippets found matching "{searchQuery}"
+                        No snippets found matching your filters.
                     </div>
                 )}
             </div>

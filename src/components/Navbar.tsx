@@ -6,12 +6,15 @@ import { Link, useLocation } from 'react-router-dom';
 export function Navbar({ searchQuery, setSearchQuery }: { searchQuery: string, setSearchQuery: (q: string) => void }) {
     const { user, signInWithGoogle, logout } = useAuth();
     const location = useLocation();
-    const isHome = location.pathname === '/';
+    const showSearch = location.pathname === '/' || location.pathname === '/storage';
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
     const NavLinks = () => (
         <>
             <Link to="/" className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>Home</Link>
+            {user && (
+                <Link to="/storage" className={`text-sm font-medium transition-colors ${location.pathname === '/storage' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>Storage</Link>
+            )}
             <Link to="/about" className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>About</Link>
             <Link to="/contact" className={`text-sm font-medium transition-colors ${location.pathname === '/contact' ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}>Contact</Link>
         </>
@@ -32,7 +35,7 @@ export function Navbar({ searchQuery, setSearchQuery }: { searchQuery: string, s
                 </div>
             </div>
 
-            {isHome && (
+            {showSearch && (
                 <div className="flex-1 max-w-md px-4 sm:px-8">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />

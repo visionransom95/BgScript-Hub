@@ -30,6 +30,13 @@ service cloud.firestore {
                     && isValidId(snippetId)
                     && isValidSnippet(incoming())
                     && incoming().createdAt == request.time;
+      allow update: if isSignedIn()
+                    && existing().authorId == request.auth.uid
+                    && isValidSnippet(incoming())
+                    && incoming().authorId == existing().authorId
+                    && incoming().authorName == existing().authorName
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'language', 'code']);
       allow delete: if isSignedIn()
                     && existing().authorId == request.auth.uid;
     }
