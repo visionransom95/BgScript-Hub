@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "Snippet": {
+      "title": "Code Snippet",
+      "description": "A piece of code uploaded by a user",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the snippet" },
+        "language": { "type": "string", "description": "Programming language identifier" },
+        "code": { "type": "string", "description": "The actual code snippet" },
+        "authorId": { "type": "string", "description": "User ID of the author" },
+        "authorName": { "type": "string", "description": "Display name of the author" },
+        "createdAt": { "type": "number", "description": "Timestamp when snippet was created" }
+      },
+      "required": ["title", "language", "code", "authorId", "authorName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/snippets/{snippetId}": {
+      "schema": "Snippet",
+      "description": "Collection of all public code snippets"
+    }
+  }
+}

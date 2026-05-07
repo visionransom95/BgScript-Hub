@@ -1,0 +1,6 @@
+{
+  "name": "BG Script Hub",
+  "description": "Upload, share, and search code files like Python and Lua.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
