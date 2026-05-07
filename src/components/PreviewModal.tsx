@@ -5,6 +5,7 @@ import { Snippet } from '../types';
 
 export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, onClose: () => void }) {
     const [copied, setCopied] = React.useState(false);
+    const [editorTheme, setEditorTheme] = React.useState(() => localStorage.getItem('monaco-theme') || 'vs-dark');
 
     if (!snippet) return null;
 
@@ -32,6 +33,18 @@ export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, on
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <select 
+                            value={editorTheme}
+                            onChange={e => {
+                                setEditorTheme(e.target.value);
+                                localStorage.setItem('monaco-theme', e.target.value);
+                            }}
+                            className="text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1 outline-none focus:border-indigo-500 mr-2"
+                        >
+                            <option value="vs-dark">Dark</option>
+                            <option value="light">Light</option>
+                            <option value="hc-black">High Contrast</option>
+                        </select>
                         <button 
                             onClick={handleCopy} 
                             className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm"
@@ -51,7 +64,7 @@ export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, on
                     <Editor
                         height="100%"
                         language={snippet.language.toLowerCase() === 'csharp' ? 'csharp' : snippet.language.toLowerCase()}
-                        theme="vs-dark"
+                        theme={editorTheme}
                         value={snippet.code}
                         options={{
                             readOnly: true,

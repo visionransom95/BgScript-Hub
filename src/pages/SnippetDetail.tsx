@@ -23,6 +23,7 @@ export function SnippetDetail() {
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const [selectedVersion, setSelectedVersion] = useState<SnippetVersion | null>(null);
+    const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('monaco-theme') || 'vs-dark');
 
     useEffect(() => {
         if (!id) return;
@@ -145,20 +146,37 @@ export function SnippetDetail() {
                                 )}
                             </div>
                         </div>
-                        <button 
-                            onClick={handleCopy} 
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors font-medium text-sm w-fit shrink-0"
-                        >
-                            {copied ? <Check size={16} /> : <Copy size={16} />}
-                            {copied ? 'Copied' : 'Copy Code'}
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 font-medium">Theme:</span>
+                                <select 
+                                    value={editorTheme}
+                                    onChange={e => {
+                                        setEditorTheme(e.target.value);
+                                        localStorage.setItem('monaco-theme', e.target.value);
+                                    }}
+                                    className="text-xs bg-gray-100 border border-gray-200 text-gray-700 rounded px-2 py-1 outline-none focus:border-indigo-500"
+                                >
+                                    <option value="vs-dark">Dark</option>
+                                    <option value="light">Light</option>
+                                    <option value="hc-black">High Contrast</option>
+                                </select>
+                            </div>
+                            <button 
+                                onClick={handleCopy} 
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors font-medium text-sm w-fit shrink-0"
+                            >
+                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                                {copied ? 'Copied' : 'Copy Code'}
+                            </button>
+                        </div>
                     </div>
                     
                     <div className="bg-[#1E1E1E] w-full flex-1 min-h-[400px]">
                         <Editor
                             height="100%"
                             language={snippet.language.toLowerCase() === 'csharp' ? 'csharp' : snippet.language.toLowerCase()}
-                            theme="vs-dark"
+                            theme={editorTheme}
                             value={currentCode}
                             options={{
                                 readOnly: true,

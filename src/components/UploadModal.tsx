@@ -34,6 +34,7 @@ export function UploadModal({ isOpen, onClose, snippetToEdit }: { isOpen: boolea
     const [title, setTitle] = useState('');
     const [language, setLanguage] = useState('python');
     const [code, setCode] = useState('');
+    const [editorTheme, setEditorTheme] = useState(() => localStorage.getItem('monaco-theme') || 'vs-dark');
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -238,12 +239,27 @@ export function UploadModal({ isOpen, onClose, snippetToEdit }: { isOpen: boolea
                                     onChange={handleFileRead}
                                 />
                             </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 font-medium">Theme:</span>
+                                <select 
+                                    value={editorTheme}
+                                    onChange={e => {
+                                        setEditorTheme(e.target.value);
+                                        localStorage.setItem('monaco-theme', e.target.value);
+                                    }}
+                                    className="text-xs bg-white border border-gray-200 text-gray-700 rounded px-2 py-0.5 outline-none focus:border-indigo-500"
+                                >
+                                    <option value="vs-dark">Dark</option>
+                                    <option value="light">Light</option>
+                                    <option value="hc-black">High Contrast</option>
+                                </select>
+                            </div>
                         </div>
                         <div className={`flex-1 rounded-xl overflow-hidden border ${errors.code ? 'border-red-500' : 'border-gray-200'}`}>
                             <Editor
                                 height="100%"
                                 language={language === 'csharp' ? 'csharp' : language.toLowerCase()}
-                                theme="vs-dark"
+                                theme={editorTheme}
                                 value={code}
                                 onChange={(val) => setCode(val || '')}
                                 options={{
