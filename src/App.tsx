@@ -7,6 +7,7 @@ import { Contact } from './pages/Contact';
 import { Login } from './pages/Login';
 import { Storage } from './pages/Storage';
 import { SnippetDetail } from './pages/SnippetDetail';
+import { Profile } from './pages/Profile';
 import { useAuth } from './lib/auth';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/snippet/:id" element={<SnippetDetail />} />
+                        <Route path="/profile/:id" element={<Profile searchQuery={searchQuery} />} />
                     </Routes>
                 </div>
             </div>

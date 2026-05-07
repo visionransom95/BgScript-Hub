@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, limit, deleteDoc, doc, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit, deleteDoc, doc, where, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Snippet } from '../types';
 import { useAuth } from '../lib/auth';
 import { formatDistanceToNow } from 'date-fns';
-import { FileCode, Trash2, Code2, TerminalSquare, Box, Coffee, Fingerprint, Scissors, Maximize2, Filter, Edit2, Share2, Database, Layout } from 'lucide-react';
+import { FileCode, Trash2, Code2, TerminalSquare, Box, Coffee, Fingerprint, Scissors, Maximize2, Filter, Edit2, Share2, Database, Layout, Heart, Tag } from 'lucide-react';
 import { PreviewModal } from './PreviewModal';
+import { Link } from 'react-router-dom';
 
 const LanguageIcon = ({ lang }: { lang: string }) => {
     switch(lang.toLowerCase()) {
@@ -30,7 +31,7 @@ const LanguageIcon = ({ lang }: { lang: string }) => {
     }
 };
 
-export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQuery: string, onEdit: (snippet: Snippet) => void, filterByAuthor?: string }) {
+export function SnippetList({ searchQuery, onEdit, filterByAuthor, favoritesOnly }: { searchQuery: string, onEdit: (snippet: Snippet) => void, filterByAuthor?: string, favoritesOnly?: boolean }) {
     const { user } = useAuth();
     const [snippets, setSnippets] = useState<Snippet[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,6 +39,24 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
     const [sortBy, setSortBy] = useState<'createdAt' | 'title' | 'language'>('createdAt');
     const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc');
     const [languageFilter, setLanguageFilter] = useState<string>('all');
+    const [tagFilter, setTagFilter] = useState<string>('all');
+    const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!user) {
+            setFavoriteIds(new Set());
+            return;
+        }
+        const favQuery = query(collection(db, 'users', user.uid, 'favorites'));
+        const unsub = onSnapshot(favQuery, (snap) => {
+            const ids = new Set<string>();
+            snap.forEach(doc => ids.add(doc.id));
+            setFavoriteIds(ids);
+        }, (err) => {
+            console.error("Failed to load favorites", err);
+        });
+        return () => unsub();
+    }, [user]);
 
     useEffect(() => {
         setLoading(true);
@@ -80,15 +99,36 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
         alert('Snippet link copied to clipboard!');
     };
 
+    const toggleFavorite = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!user) return alert("Please log in to favorite snippets");
+        
+        try {
+            if (favoriteIds.has(id)) {
+                await deleteDoc(doc(db, 'users', user.uid, 'favorites', id));
+            } else {
+                await setDoc(doc(db, 'users', user.uid, 'favorites', id), {
+                    snippetId: id,
+                    createdAt: serverTimestamp()
+                });
+            }
+        } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/favorites/${id}`);
+        }
+    };
+
     let filteredSnippets = snippets.filter(s => {
+        if (favoritesOnly && !favoriteIds.has(s.id)) return false;
         if (languageFilter !== 'all' && s.language !== languageFilter) return false;
+        if (tagFilter !== 'all' && (!s.tags || !s.tags.includes(tagFilter))) return false;
         const queryLower = searchQuery.toLowerCase();
         return s.title.toLowerCase().includes(queryLower) || 
                s.language.toLowerCase().includes(queryLower) ||
-               s.authorName.toLowerCase().includes(queryLower);
+               s.authorName.toLowerCase().includes(queryLower) || 
+               (s.tags && s.tags.some(t => t.toLowerCase().includes(queryLower)));
     });
 
-    if (filterByAuthor) {
+    if (filterByAuthor || favoritesOnly) {
         filteredSnippets.sort((a, b) => {
             if (sortBy === 'createdAt') {
                 const timeA = a.createdAt?.toMillis() || 0;
@@ -105,8 +145,11 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
         });
     }
 
-    // Derive languages present in the fetched snippets
+    // Derive languages and tags
     const presentLanguages = Array.from(new Set(snippets.map(s => s.language))).sort();
+    const allTags = new Set<string>();
+    snippets.forEach(s => s.tags?.forEach(t => allTags.add(t)));
+    const presentTags = Array.from(allTags).sort();
 
     if (loading) {
         return <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -134,8 +177,25 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
     return (
         <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-                <h3 className="text-lg font-semibold text-gray-900">{filterByAuthor ? 'My Snippets' : 'Community Snippets'}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                    {favoritesOnly ? 'My Favorites' : filterByAuthor ? 'My Snippets' : 'Community Snippets'}
+                </h3>
                 <div className="flex flex-wrap items-center gap-3 text-sm">
+                    {presentTags.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-gray-500 font-medium flex items-center gap-1"><Tag size={14} /> Tag:</span>
+                            <select 
+                                value={tagFilter} 
+                                onChange={(e) => setTagFilter(e.target.value)}
+                                className="bg-white border border-gray-200 text-gray-700 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5 outline-none font-medium"
+                            >
+                                <option value="all">All Tags</option>
+                                {presentTags.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <div className="flex items-center gap-2">
                         <span className="text-gray-500 font-medium flex items-center gap-1"><Filter size={14} /> Lang:</span>
                         <select 
@@ -177,7 +237,7 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
                     <div 
                         key={snippet.id} 
                         onClick={() => setSelectedSnippet(snippet)}
-                        className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-all flex flex-col cursor-pointer group hover:-translate-y-1"
+                        className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-all flex flex-col cursor-pointer group hover:-translate-y-1 relative"
                     >
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                             <div className="flex items-center gap-3">
@@ -185,13 +245,20 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
                                     <LanguageIcon lang={snippet.language} />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-gray-900 line-clamp-1 pr-2">{snippet.title}</h3>
+                                    <Link to={`/snippet/${snippet.id}`} onClick={e => e.stopPropagation()} className="text-sm font-semibold text-gray-900 line-clamp-1 pr-2 hover:text-indigo-600 transition-colors">{snippet.title}</Link>
                                     <p className="text-xs text-gray-500 capitalize">
-                                        {snippet.language} · by {snippet.authorName}
+                                        {snippet.language} · by <Link to={`/profile/${snippet.authorId}`} onClick={e => e.stopPropagation()} className="hover:text-indigo-600">{snippet.authorName}</Link>
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4 bg-gray-50/90 backdrop-blur rounded-lg shadow-sm border border-gray-100 p-1">
+                                <button 
+                                    onClick={(e) => toggleFavorite(snippet.id, e)}
+                                    className={`p-2 rounded-lg transition-colors ${favoriteIds.has(snippet.id) ? 'text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
+                                    title={favoriteIds.has(snippet.id) ? "Unfavorite" : "Favorite"}
+                                >
+                                    <Heart size={16} fill={favoriteIds.has(snippet.id) ? "currentColor" : "none"} />
+                                </button>
                                 <button 
                                     onClick={(e) => handleShare(snippet.id, e)}
                                     className="text-gray-400 hover:text-blue-500 p-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -217,9 +284,18 @@ export function SnippetList({ searchQuery, onEdit, filterByAuthor }: { searchQue
                                         </button>
                                     </>
                                 )}
-                                <div className="text-gray-400 p-2 rounded-lg group-hover:text-indigo-600 transition-colors bg-white border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50">
-                                    <Maximize2 size={16} />
-                                </div>
+                            </div>
+                            {/* Always visible favorite state and tags */}
+                            <div className="flex items-center gap-2 pr-1 group-hover:opacity-0 transition-opacity">
+                                {snippet.tags && snippet.tags.length > 0 && (
+                                    <div className="hidden sm:flex gap-1 items-center mr-2">
+                                        <Tag size={12} className="text-gray-400" />
+                                        <span className="text-xs text-gray-500">{snippet.tags.length}</span>
+                                    </div>
+                                )}
+                                {favoriteIds.has(snippet.id) && (
+                                    <Heart size={16} className="text-red-500" fill="currentColor" />
+                                )}
                             </div>
                         </div>
                         <div className="bg-[#1E1E1E] flex-1 p-4 overflow-hidden relative">

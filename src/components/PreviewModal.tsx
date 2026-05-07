@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, Copy, Check } from 'lucide-react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import Editor from '@monaco-editor/react';
 import { Snippet } from '../types';
 
 export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, onClose: () => void }) {
@@ -17,11 +16,20 @@ export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, on
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]" onClick={onClose}>
-            <div className="bg-gray-900 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] border border-gray-700 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-900 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col h-[85vh] max-h-[900px] border border-gray-700 overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="px-6 py-4 flex items-center justify-between border-b border-gray-800 bg-gray-900/50">
                     <div>
                         <h2 className="text-xl font-semibold text-white">{snippet.title}</h2>
-                        <p className="text-sm text-gray-400 mt-1">{snippet.language} · by {snippet.authorName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-sm text-gray-400 capitalize">{snippet.language} · by {snippet.authorName}</p>
+                            {snippet.tags && snippet.tags.length > 0 && (
+                                <div className="flex gap-1 ml-2">
+                                    {snippet.tags.map(tag => (
+                                        <span key={tag} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-xs">{tag}</span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button 
@@ -39,15 +47,20 @@ export function PreviewModal({ snippet, onClose }: { snippet: Snippet | null, on
                     </div>
                 </div>
                 
-                <div className="flex-1 overflow-auto bg-[#1E1E1E] p-4 text-sm code-preview">
-                    <SyntaxHighlighter 
-                        language={snippet.language.toLowerCase()} 
-                        style={vscDarkPlus}
-                        customStyle={{ margin: 0, padding: 0, background: 'transparent' }}
-                        showLineNumbers={true}
-                    >
-                        {snippet.code}
-                    </SyntaxHighlighter>
+                <div className="flex-1 overflow-hidden bg-[#1E1E1E]">
+                    <Editor
+                        height="100%"
+                        language={snippet.language.toLowerCase() === 'csharp' ? 'csharp' : snippet.language.toLowerCase()}
+                        theme="vs-dark"
+                        value={snippet.code}
+                        options={{
+                            readOnly: true,
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            wordWrap: 'on',
+                            padding: { top: 16, bottom: 16 }
+                        }}
+                    />
                 </div>
             </div>
         </div>
